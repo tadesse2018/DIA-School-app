@@ -987,12 +987,23 @@ export default function App() {
           const map = new Map<string, Student>();
           studentsSnap.forEach(doc => map.set(doc.id, doc.data() as Student));
 
-          setStudents(Array.from(map.values()));
+          const loadedStudents = Array.from(map.values());
+          if (schoolWorkspaceId === 'diligent' && loadedStudents.length < INITIAL_STUDENTS.length) {
+            setStudents(INITIAL_STUDENTS);
+            localStorage.setItem(`school_students_${schoolWorkspaceId}`, JSON.stringify(INITIAL_STUDENTS));
+          } else if (loadedStudents.length > 0) {
+            setStudents(loadedStudents);
+          } else if (schoolWorkspaceId === 'diligent') {
+            setStudents(INITIAL_STUDENTS);
+          }
         } catch (e: any) {
           console.warn('Loaded students from local cache / storage (offline mode)', e);
           const errMsg = e?.message || String(e);
           if (errMsg.includes('Could not reach Cloud Firestore') || errMsg.includes('offline') || errMsg.includes('unavailable') || !navigator.onLine) {
             offlineDetected = true;
+          }
+          if (schoolWorkspaceId === 'diligent' && (!students || students.length === 0)) {
+            setStudents(INITIAL_STUDENTS);
           }
         }
 
