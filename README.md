@@ -1,50 +1,38 @@
-# Kibr Middle School - Student Report Card System (የክብር መካከለኛ ደረጃ ትምህርት ቤት የተማሪ ውጤት መግለጫ)
+# Diligent School Management System (ደሊጀንት ትምህርት ቤት አስተዳደር ሲስተም)
 
-ይህ መተግበሪያ የኪብር መካከለኛ ደረጃ ትምህርት ቤት የተማሪዎችን ውጤት ለመመዝገብ፣ ለመከታተል እና ማራኪ የሆኑ የተማሪ ውጤት መግለጫ ካርዶችን (Report Cards) በPDF ለማመንጨት የተዘጋጀ ሲስተም ነው።
+ይህ መተግበሪያ የትምህርት ቤቶችን አስተዳደር፣ የተማሪዎች ምዝገባ፣ ውጤት፣ አቴንዳንስ፣ ሰራተኞች እና የክፍል መርሃ-ግብር በዘመናዊ መልኩ ለመቆጣጠር እና ሪፖርቶችን ለማውጣት የተዘጋጀ ሙሉ ሲስተም ነው።
 
 ---
 
-## 💻 1. ያለ ኢንተርኔት በኮምፒውተርዎ ላይ ለመጫንና ለመጠቀም (How to Run Offline on Desktop)
+## 🚀 ለ GitHub እና ለኮምፒውተርዎ ዝግጅት (GitHub & Offline Setup Guide)
 
-ይህ መተግበሪያ አንዴ ከተጫነ በኋላ **ያለ ምንም የኢንተርኔት ግንኙነት (Offline)** በኮምፒውተርዎ ላይ ሙሉ በሙሉ ይሰራል። ለመጫን የሚከተሉትን ደረጃዎች ይከተሉ፡
+ይህ ሲስተም **Cloud Database (Firebase)** ብቻ ሳይወሰን **በኮምፒውተርዎ ላይ ያለ ኢንተርኔት (Offline / LocalStorage)** ሙሉ በሙሉ መስራት እንዲችል ተደርጎ የተሰራ ነው። 
 
-### ቅድመ-ሁኔታዎች (Prerequisites)
-ኮምፒውተርዎ ላይ **Node.js** መጫን አለበት። ከሌለዎት ከ [nodejs.org](https://nodejs.org/) በነጻ አውርደው ይጫኑት።
+### 1. በ GitHub ላይ ሎድ ለማድረግ / ለመጫን (Deploying to GitHub)
+1. ይህንን ፕሮጀክት ፎልደር ወደ **GitHub** ሪፖዚተሪ (Repository) ፕሽ (Push) ያድርጉ።
+2. በ **Vercel**፣ **Netlify** ወይም **GitHub Pages** ላይ ሪፖዚተሪውን በማገናኘት በአንድ ክሊክ በነጻ የኢንተርኔት ሊንክ ማግኘት ይችላሉ።
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
 
-### የመጫኛ ቅደም-ተከተል (Setup Steps)
-1. መተግበሪያውን በ **ZIP** ያውርዱ እና ዚፑን ይክፈቱት (Extract)።
-2. የኮምፒውተርዎን **Terminal** ወይም **Command Prompt (CMD)** ይክፈቱ።
-3. ወደ መተግበሪያው ፎልደር በ `cd` ይግቡ።
-4. **ለአንድ ጊዜ ብቻ (ኢንተርኔት ሲኖር)** አስፈላጊ የሆኑ ፋይሎችን ለመጫን ይህንን ትዕዛዝ ያሂዱ፡
+### 2. በኮምፒውተርዎ ላይ ያለ ኢንተርኔት (Offline Desktop Setup)
+1. ኮምፒውተርዎ ላይ **Node.js** መጫኑን ያረጋግጡ ([nodejs.org](https://nodejs.org/)).
+2. ቴርሚናል (Terminal / CMD) ይክፈቱ እና ወደ ፕሮጀክቱ ፎልደር ይግቡ።
+3. ፋይሎቹን ለማስተካከል ለአንድ ጊዜ ብቻ ይህንን ትዕዛዝ ያሂዱ፡
    ```bash
    npm install
    ```
-5. አሁን መተግበሪያውን ለመክፈትና ለመጠቀም (ኢንተርኔት ባይኖርም ይሰራል) ይህንን ያሂዱ፡
+4. ሲስተሙን ለማስጀመር፡
    ```bash
    npm run dev
    ```
-6. ሲስተሙ የሚሰጥዎትን ሊንክ (ብዙውን ጊዜ `http://localhost:3000` ወይም `http://localhost:5173`) በኮምፒውተርዎ ብሮውዘር (Chrome/Edge) ላይ በመክፈት መጠቀም ይችላሉ!
+5. ብሮውዘርዎ ላይ `http://localhost:3000` ብለው በመክፈት መጠቀም ይችላሉ!
 
 ---
 
-## 🚀 2. በነጻ ወደ Vercel ወይም GitHub በመጫን በሊንክ ለመጠቀም (How to Deploy to Vercel/GitHub)
+## 🛠️ ዋና ዋና አገልግሎቶች (Core Features)
+- **የተማሪዎች ምዝገባና መደብ (Student Roster & Sorting)**: በCSV የተጫኑ ከ236 በላይ ተማሪዎች በክፍል፣ በስም እና በID መደብ።
+- **የሰራተኞችና መምህራን አቴንዳንስ (Staff Attendance)**: የጧት እና የከሰዓት ሰንጠረዦች (Morning & Afternoon Attendance) ከአውቶማቲክ ሙላ (Auto-fill) ጋር።
+- **ውጤቶች እና ሪፖርት ካርዶች (Grades & PDF Reports)**: ተማሪዎች ውጤታቸውን በPDF ማውረድ ይችላሉ።
 
-መተግበሪያውን በሊንክ ለሌሎች ሰዎች ለማጋራት በቀላሉ በ **Vercel** ላይ መጫን ይችላሉ።
+Developed with ❤️ for Ethiopian Schools.
 
-### በ Vercel ላይ ለመጫን (Deploy to Vercel)
-1. ወደ [vercel.com](https://vercel.com/) ይሂዱና በነጻ አካውንት ይክፈቱ (በGitHub አካውንትዎ መግባት ይችላሉ)።
-2. **Add New Project** የሚለውን ይጫኑ።
-3. የ GitHub ኮድዎን ያገናኙ (Import) ወይም የኮዱን ፎልደር ይምረጡ።
-4. **Deploy** የሚለውን ቁልፍ ይጫኑ። Vercel በራሱ ጊዜ ሰርቶ በነጻ የሚከፈት አዲስ የኢንተርኔት ሊንክ ይሰጥዎታል።
-
----
-
-## 🛠️ የቴክኖሎጂ ዝርዝር (Tech Stack)
-- **React 18** & **Vite** (ለፈጣን ስራ)
-- **Tailwind CSS** (ለማራኪ ገጽታ)
-- **Lucide Icons** (ለስዕላዊ መግለጫዎች)
-- **HTML5 Canvas / jspdf** (ለPDF ማውረጃ)
-
----
-
-Developed and polished with ❤️ inside Google AI Studio.
