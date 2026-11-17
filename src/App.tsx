@@ -864,7 +864,7 @@ export default function App() {
         parsedStudents = JSON.parse(cachedStudents);
       } catch (e) {}
     }
-    if ((!parsedStudents || parsedStudents.length === 0) && schoolWorkspaceId === 'diligent') {
+    if ((!parsedStudents || parsedStudents.length < INITIAL_STUDENTS.length) && schoolWorkspaceId === 'diligent') {
       parsedStudents = INITIAL_STUDENTS;
       localStorage.setItem(`school_students_${schoolWorkspaceId}`, JSON.stringify(INITIAL_STUDENTS));
     }
