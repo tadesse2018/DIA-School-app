@@ -44,6 +44,7 @@ interface RegisterStaffModalProps {
   onAddStaff: (staff: StaffMember) => void;
   onAddTeacher?: (teacher: Teacher) => void;
   existingTeachers?: Teacher[];
+  existingStaff?: StaffMember[];
   schoolConfig?: any;
 }
 
@@ -52,6 +53,8 @@ export const RegisterStaffModal: React.FC<RegisterStaffModalProps> = ({
   onClose,
   onAddStaff,
   onAddTeacher,
+  existingTeachers,
+  existingStaff,
   schoolConfig
 }) => {
   const { tx } = useLanguage();
@@ -259,6 +262,17 @@ export const RegisterStaffModal: React.FC<RegisterStaffModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const cleanName = name.trim().toLowerCase();
+    const isDuplicateInCategory = (existingStaff || []).some(
+      s => s.name.trim().toLowerCase() === cleanName && s.category === selectedCategory
+    );
+
+    if (isDuplicateInCategory) {
+      setErrorMsg(tx(`⚠️ ሰራተኛ "${name.trim()}" ቀደም ሲል በዚህ የስራ ዘርፍ (${selectedCategory}) ተመዝግቧል! በአንድ የስራ ዘርፍ ከአንድ ጊዜ በላይ መመዝገብ አይቻልም። (Staff member already registered in this role category.)`));
+      playInteractiveSound('wrong');
+      return;
+    }
     if (!name.trim()) {
       setErrorMsg(tx('እባክዎን ሙሉ ስም ያስገቡ (Please enter full name)'));
       playInteractiveSound('wrong');

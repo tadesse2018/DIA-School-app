@@ -50,6 +50,10 @@ const ETHIOPIAN_MONTHS = [
   "መጋቢት", "ሚያዝያ", "ግንቦት", "ሰኔ", "ሐምሌ", "ነሐሴ", "ጳጉሜ"
 ];
 
+const AMHARIC_WEEKDAYS = [
+  "እሁድ", "ሰኞ", "ማክሰኞ", "ረቡዕ", "ሐሙስ", "አርብ", "ቅዳሜ"
+];
+
 export function getFormattedDualCalendarDate(date: Date): { gc: string; ec: string } {
   // 1. Gregorian Calendar formatting
   const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -86,7 +90,9 @@ export function getFormattedDualCalendarDate(date: Date): { gc: string; ec: stri
   const ethMonth = ETHIOPIAN_MONTHS[ethMonthIndex] || "መስከረም";
   const ethDay = (diffDays % 30) + 1;
 
-  const ecFormatted = `${ethMonth} ${ethDay} ቀን ${ethYear} ዓ.ም`;
+  const weekdayNameAmh = AMHARIC_WEEKDAYS[date.getDay()] || "ረቡዕ";
+  const dayStr = String(ethDay).padStart(2, '0');
+  const ecFormatted = `${weekdayNameAmh}፣ ${ethMonth} ${dayStr}፣ ${ethYear} ዓ.ም`;
 
   return {
     gc: gcEng,
@@ -724,6 +730,7 @@ export const GradeTrackerSection: React.FC<GradeTrackerSectionProps> = ({
   const [previewViewType, setPreviewViewType] = useState<'card' | 'list'>('card');
   const [selectedTerm, setSelectedTerm] = useState<number | 'annual'>(1);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
+  const [studentSortBy, setStudentSortBy] = useState<'name' | 'id'>('name');
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -1020,6 +1027,15 @@ export const GradeTrackerSection: React.FC<GradeTrackerSectionProps> = ({
     setIsWeightModalOpen(false);
   };
 
+  const sortStudents = (list: Student[]) => {
+    return [...list].sort((a, b) => {
+      if (studentSortBy === 'id') {
+        return a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
+      }
+      return a.name.localeCompare(b.name, 'am');
+    });
+  };
+
   // Filter students by chosen Grade and Section & search query
   const filteredStudents = useMemo(() => {
     let result = students;
@@ -1034,26 +1050,25 @@ export const GradeTrackerSection: React.FC<GradeTrackerSectionProps> = ({
         s.id.toLowerCase().includes(q)
       );
     }
-    // Sort alphabetically by name
-    return [...result].sort((a, b) => a.name.localeCompare(b.name, 'am'));
-  }, [students, selectedGrade, selectedSection, studentSearchQuery]);
+    return sortStudents(result);
+  }, [students, selectedGrade, selectedSection, studentSearchQuery, studentSortBy]);
 
-  // Stable alphabetical student list for the selected grade and section to give them a consistent serial number (ተራ ቁጥር)
+  // Stable sorted student list for the selected grade and section to give them a consistent serial number (ተራ ቁጥር)
   const sectionAlphabeticalStudents = useMemo(() => {
     let result = students;
     if (selectedGrade !== 'All') {
       result = result.filter(s => s.grade === selectedGrade);
     }
     result = result.filter(s => s.section === selectedSection);
-    return [...result].sort((a, b) => a.name.localeCompare(b.name, 'am'));
-  }, [students, selectedGrade, selectedSection]);
+    return sortStudents(result);
+  }, [students, selectedGrade, selectedSection, studentSortBy]);
 
   const getStudentRollNumber = React.useCallback((studentId: string) => {
     const idx = sectionAlphabeticalStudents.findIndex(s => s.id === studentId);
     return idx !== -1 ? idx + 1 : '-';
   }, [sectionAlphabeticalStudents]);
 
-  // Map students with their subject-specific grades (sorted alphabetically by student name)
+  // Map students with their subject-specific grades
   const studentGradesData = useMemo(() => {
     return filteredStudents.map(student => {
       const termToFilter = selectedTerm === 'annual' ? 1 : selectedTerm;
@@ -1063,7 +1078,7 @@ export const GradeTrackerSection: React.FC<GradeTrackerSectionProps> = ({
         gradeRecord: gradeRecord || null,
         totalScore: gradeRecord ? gradeRecord.total : 0
       };
-    }).sort((a, b) => a.student.name.localeCompare(b.student.name, 'am')); // Sort alphabetically by name
+    });
   }, [filteredStudents, grades, selectedSubject, selectedTerm]);
 
   // Complete Roster data including all subjects, totals, averages, and ranks
@@ -3595,6 +3610,19 @@ export const GradeTrackerSection: React.FC<GradeTrackerSectionProps> = ({
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
+              </div>
+
+              {/* Sorting Dropdown */}
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">{tx("ደርድር:")}</span>
+                <select
+                  value={studentSortBy}
+                  onChange={(e) => { playInteractiveSound('click'); setStudentSortBy(e.target.value as 'name' | 'id'); }}
+                  className="text-xs font-bold text-slate-800 bg-transparent outline-none cursor-pointer"
+                >
+                  <option value="name">{tx("በስም (Name)")}</option>
+                  <option value="id">{tx("በመታወቂያ (ID)")}</option>
+                </select>
               </div>
             </div>
 

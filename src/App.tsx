@@ -50,7 +50,8 @@ import {
   Eye,
   EyeOff,
   UserPlus,
-  MessageSquare
+  MessageSquare,
+  CheckCircle
  } from 'lucide-react';
 
 export interface UserAccount {
@@ -124,6 +125,26 @@ const cleanForFirestore = (obj: any): any => {
     return cleaned;
   }
   return obj;
+};
+
+const generateNextStudentId = (currentStudents: Student[]): string => {
+  if (!currentStudents || currentStudents.length === 0) {
+    return 'ID-0001';
+  }
+  let maxNum = 0;
+  for (const s of currentStudents) {
+    if (s.id) {
+      const match = s.id.match(/\d+/);
+      if (match) {
+        const num = parseInt(match[0], 10);
+        if (num > maxNum) {
+          maxNum = num;
+        }
+      }
+    }
+  }
+  const nextNum = maxNum + 1;
+  return `ID-${String(nextNum).padStart(4, '0')}`;
 };
 
 // Automatically generate a lowercase, no-spaces phonetic password for a parent based on the student's name
@@ -669,60 +690,27 @@ export default function App() {
   // Database States loaded from localStorage if exists with try/catch safety
   const [students, setStudents] = useState<Student[]>(() => {
     const saved = localStorage.getItem(`school_students_${schoolWorkspaceId}`);
-    let list: Student[] = [];
-    if (saved) {
-      try { list = JSON.parse(saved); } catch (e) {}
-    } else if (schoolWorkspaceId === 'diligent') {
-      list = INITIAL_STUDENTS;
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.length > 0) return parsed;
+      } catch (e) {}
     }
-    // Ensure Grade 7 Section A has sample students if empty in diligent workspace
-    if (schoolWorkspaceId === 'diligent' && !list.some(s => s.grade === 'Grade 7' && s.section === 'A')) {
-      const g7Students = INITIAL_STUDENTS.filter(s => s.grade === 'Grade 7' && s.section === 'A');
-      list = [...list, ...g7Students];
-    }
-    // User requirement: Ensure student register gender is Female
-    list = list.map(s => ({ ...s, gender: 'Female' as const }));
-    return list;
+    return schoolWorkspaceId === 'diligent' ? INITIAL_STUDENTS : [];
   });
   const [grades, setGrades] = useState<Grade[]>(() => {
     const saved = localStorage.getItem(`school_grades_${schoolWorkspaceId}`);
-    let list: Grade[] = [];
-    if (saved) {
-      try { list = JSON.parse(saved); } catch (e) {}
-    } else if (schoolWorkspaceId === 'diligent') {
-      list = INITIAL_GRADES;
+    if (saved !== null) {
+      try { return JSON.parse(saved); } catch (e) {}
     }
-    if (schoolWorkspaceId === 'diligent') {
-      const g7Grades = INITIAL_GRADES.filter(g => g.studentId.startsWith('ID-701'));
-      const missing = g7Grades.filter(g => !list.some(existing => existing.studentId === g.studentId && existing.subject === g.subject));
-      if (missing.length > 0) {
-        list = [...list, ...missing];
-      }
-    }
-    return list;
+    return schoolWorkspaceId === 'diligent' ? INITIAL_GRADES : [];
   });
   const [teachers, setTeachers] = useState<Teacher[]>(() => {
     const saved = localStorage.getItem(`school_teachers_${schoolWorkspaceId}`);
-    let list: Teacher[] = [];
-    if (saved) {
-      try { list = JSON.parse(saved); } catch (e) {}
-    } else if (schoolWorkspaceId === 'diligent') {
-      list = INITIAL_TEACHERS;
+    if (saved !== null) {
+      try { return JSON.parse(saved); } catch (e) {}
     }
-    if (schoolWorkspaceId === 'diligent') {
-      list = list.map(t => {
-        const initialMatch = INITIAL_TEACHERS.find(it => it.id === t.id);
-        if (initialMatch && (!t.classAllocations || t.classAllocations.length <= 1 || t.subjects.length <= 1)) {
-          return {
-            ...t,
-            subjects: initialMatch.subjects,
-            classAllocations: initialMatch.classAllocations
-          };
-        }
-        return t;
-      });
-    }
-    return list;
+    return schoolWorkspaceId === 'diligent' ? INITIAL_TEACHERS : [];
   });
   const [staffList, setStaffList] = useState<StaffMember[]>(() => {
     const saved = localStorage.getItem(`school_staff_${schoolWorkspaceId}`);
@@ -870,7 +858,17 @@ export default function App() {
     }
 
     const cachedStudents = localStorage.getItem(`school_students_${schoolWorkspaceId}`);
-    setStudents(cachedStudents ? JSON.parse(cachedStudents) : (schoolWorkspaceId === 'diligent' ? INITIAL_STUDENTS : []));
+    let parsedStudents: Student[] = [];
+    if (cachedStudents !== null) {
+      try {
+        parsedStudents = JSON.parse(cachedStudents);
+      } catch (e) {}
+    }
+    if ((!parsedStudents || parsedStudents.length === 0) && schoolWorkspaceId === 'diligent') {
+      parsedStudents = INITIAL_STUDENTS;
+      localStorage.setItem(`school_students_${schoolWorkspaceId}`, JSON.stringify(INITIAL_STUDENTS));
+    }
+    setStudents(parsedStudents);
 
     const cachedGrades = localStorage.getItem(`school_grades_${schoolWorkspaceId}`);
     setGrades(cachedGrades ? JSON.parse(cachedGrades) : (schoolWorkspaceId === 'diligent' ? INITIAL_GRADES : []));
@@ -950,7 +948,10 @@ export default function App() {
 
           // Decide whether to seed sample/demo data or keep database clean
           let shouldSeedDemo = false;
-          if (schoolWorkspaceId === 'diligent') {
+          const localStudents = localStorage.getItem(`school_students_${schoolWorkspaceId}`);
+          if (localStudents !== null) {
+            shouldSeedDemo = false;
+          } else if (schoolWorkspaceId === 'diligent') {
             shouldSeedDemo = true;
           } else if (configToSeed && (configToSeed.seedDemoData === true || configToSeed.seedDemoData === 'true')) {
             shouldSeedDemo = true;
@@ -985,11 +986,6 @@ export default function App() {
           const studentsSnap = await getDocs(collection(db, 'schools', schoolWorkspaceId, 'students'));
           const map = new Map<string, Student>();
           studentsSnap.forEach(doc => map.set(doc.id, doc.data() as Student));
-
-          if (schoolWorkspaceId === 'diligent') {
-            const globalSnap = await getDocs(collection(db, 'schools', 'global_shared_school', 'students'));
-            globalSnap.forEach(doc => map.set(doc.id, doc.data() as Student));
-          }
 
           setStudents(Array.from(map.values()));
         } catch (e: any) {
@@ -1071,7 +1067,7 @@ export default function App() {
             loadedAccounts.push(acc);
           });
           const requiredDefaults: UserAccount[] = [
-            { email: 'tadessemisganaw4@gmail.com', phone: '0911223344', password: 'Owner123', role: 'admin', name: tx("ሲስተም አድሚን (System Admin)") },
+            { email: 'tadessemisganaw4@gmail.com', phone: '0911223344', password: 'Owner123', role: 'principal', name: tx("ሲስተም አድሚን (System Admin)") },
             { email: 'principal@school.com', phone: '0911334455', password: 'Principal123', role: 'principal', name: tx("ርዕሰ መምህር (Principal)") },
             { email: 'viceprincipal@school.com', phone: '0911554433', password: 'Teacher123', role: 'vice_principal', name: tx("ምክትል ርዕሰ መምህር (Vice Principal)") },
             { email: 'parent@school.com', phone: '0922334455', password: 'Parent123', role: 'parent', name: tx("ወላጅ (Parent)") }
@@ -1193,10 +1189,6 @@ export default function App() {
       const studentsSnap = await getDocs(collection(db, 'schools', schoolWorkspaceId, 'students'));
       const map = new Map<string, Student>();
       studentsSnap.forEach(doc => map.set(doc.id, doc.data() as Student));
-      if (schoolWorkspaceId === 'diligent') {
-        const globalSnap = await getDocs(collection(db, 'schools', 'global_shared_school', 'students'));
-        globalSnap.forEach(doc => map.set(doc.id, doc.data() as Student));
-      }
       setStudents(Array.from(map.values()));
 
       const gradesSnap = await getDocs(collection(db, 'schools', schoolWorkspaceId, 'grades'));
@@ -2215,7 +2207,7 @@ export default function App() {
               newStudents.push({
                  registeredBy: currentUser?.name || 'Admin',
                  timestamp: new Date().toISOString(),
-                id: row[0] || 'ID-' + Math.floor(1000 + Math.random() * 9000),
+                id: row[0] || generateNextStudentId([...students, ...newStudents]),
                 name: row[1] || 'Unnamed Student',
                 grade: row[2] || 'Grade 1',
                 section: row[3] || 'A',
@@ -2999,11 +2991,11 @@ export default function App() {
 
     return merged.map(acc => {
       let emoji = '🔑';
-      if (acc.role === 'admin') emoji = tx("👑 አድሚን");
-      else if (acc.role === 'principal') emoji = tx("👨‍💼 ርዕሰ መምህር");
-      else if (acc.role === 'vice_principal') emoji = tx("👩‍💼 ምክትል ር/መ");
-      else if (acc.role === 'teacher') emoji = tx("👨‍🏫 መምህር");
-      else if (acc.role === 'parent') emoji = tx("👨‍👩‍👧 ወላጅ");
+      if (acc.email === 'tadessemisganaw4@gmail.com') emoji = tx("👑 አድሚን");
+      else if ((acc.role as string) === 'principal') emoji = tx("👨‍💼 ርዕሰ መምህር");
+      else if ((acc.role as string) === 'vice_principal') emoji = tx("👩‍💼 ምክትል ር/መ");
+      else if ((acc.role as string) === 'teacher') emoji = tx("👨‍🏫 መምህር");
+      else if ((acc.role as string) === 'parent') emoji = tx("👨‍👩‍👧 ወላጅ");
       let cleanPhone = (acc as any).phone || '';
       if (!cleanPhone) {
         if (acc.email === 'tadessemisganaw4@gmail.com') cleanPhone = '0911223344';
@@ -3703,10 +3695,10 @@ export default function App() {
       return;
     }
 
-    const randomId = 'ID-' + Math.floor(1000 + Math.random() * 9000);
+    const nextId = generateNextStudentId(students);
     const ageVal = newStudentAge.trim() ? parseInt(newStudentAge.trim(), 10) : undefined;
     const newStudent: Student = {
-      id: randomId,
+      id: nextId,
       name: newStudentName.trim(),
       grade: newStudentGrade,
       section: newStudentSection,
@@ -3735,7 +3727,7 @@ export default function App() {
       targetParentEmail
     );
 
-    setPrincipalSuccessMsg(`✅ ተማሪው በተሳካ ሁኔታ ተመዝግቧል! ለወላጅ የኢሜል ማሳወቂያ ተልኳል (Student Registered! ID: ${randomId} & email dispatched)`);
+    setPrincipalSuccessMsg(`✅ ተማሪው በተሳካ ሁኔታ ተመዝግቧል! ለወላጅ የኢሜል ማሳወቂያ ተልኳል (Student Registered! ID: ${newStudent.id} & email dispatched)`);
     setNewStudentName('');
     setNewStudentParentEmail('');
     setNewStudentParentPhone('');
@@ -3827,15 +3819,29 @@ export default function App() {
 
   const handleDeleteTeacher = async (id: string) => {
     const teacher = teachers.find(t => t.id === id);
-    setTeachers(prev => prev.filter(t => t.id !== id));
+    setTeachers(prev => {
+      const next = prev.filter(t => t.id !== id);
+      localStorage.setItem(`school_teachers_${schoolWorkspaceId}`, JSON.stringify(next));
+      return next;
+    });
+    setStaffList(prev => {
+      const next = prev.filter(s => s.id !== id);
+      localStorage.setItem(`school_staff_${schoolWorkspaceId}`, JSON.stringify(next));
+      return next;
+    });
     if (teacher) {
       const fallbackEmail = `${teacher.id.toLowerCase().replace(/[^a-z0-9]/g, '')}@school.com`;
       const emailClean = (teacher.email || fallbackEmail).trim().toLowerCase();
-      setUserAccounts(prev => prev.filter(acc => acc.email.trim().toLowerCase() !== emailClean));
+      setUserAccounts(prev => {
+        const next = prev.filter(acc => acc.email.trim().toLowerCase() !== emailClean);
+        localStorage.setItem(`school_user_accounts_${schoolWorkspaceId}`, JSON.stringify(next));
+        return next;
+      });
     }
     try {
       const docId = id || teacher?.email?.replace(/[^a-zA-Z0-9]/g, '_') || 'tch_unknown';
       await deleteDoc(doc(db, 'schools', schoolWorkspaceId, 'teachers', docId));
+      await deleteDoc(doc(db, 'schools', schoolWorkspaceId, 'staff', id));
     } catch (e) {
       console.error('Firestore delete teacher error:', e);
     }
@@ -3851,7 +3857,11 @@ export default function App() {
   };
 
   const handleDeleteClass = async (id: string) => {
-    setClasses(prev => prev.filter(c => c.id !== id));
+    setClasses(prev => {
+      const next = prev.filter(c => c.id !== id);
+      localStorage.setItem(`school_classes_${schoolWorkspaceId}`, JSON.stringify(next));
+      return next;
+    });
     try {
       await deleteDoc(doc(db, 'schools', schoolWorkspaceId, 'classes', id));
     } catch (e) {
@@ -3869,7 +3879,11 @@ export default function App() {
   };
 
   const handleDeleteAnnouncement = async (id: string) => {
-    setAnnouncements(prev => prev.filter(a => a.id !== id));
+    setAnnouncements(prev => {
+      const next = prev.filter(a => a.id !== id);
+      localStorage.setItem(`school_announcements_${schoolWorkspaceId}`, JSON.stringify(next));
+      return next;
+    });
     try {
       await deleteDoc(doc(db, 'schools', schoolWorkspaceId, 'announcements', id));
     } catch (e) {
@@ -3887,7 +3901,16 @@ export default function App() {
   };
 
   const handleDeleteStudent = async (id: string) => {
-    setStudents(prev => prev.filter(s => s.id !== id));
+    setStudents(prev => {
+      const next = prev.filter(s => s.id !== id);
+      localStorage.setItem(`school_students_${schoolWorkspaceId}`, JSON.stringify(next));
+      return next;
+    });
+    setGrades(prev => {
+      const next = prev.filter(g => g.studentId !== id);
+      localStorage.setItem(`school_grades_${schoolWorkspaceId}`, JSON.stringify(next));
+      return next;
+    });
     try {
       await deleteDoc(doc(db, 'schools', schoolWorkspaceId, 'students', id));
     } catch (e) {
@@ -3973,9 +3996,13 @@ export default function App() {
 
   const handleDeleteStudentMainConfirm = async () => {
     if (deletingStudentMainTab) {
-      await handleDeleteStudent(deletingStudentMainTab.id);
-      playInteractiveSound('click');
+      const studentName = deletingStudentMainTab.name;
+      const studentId = deletingStudentMainTab.id;
+      playInteractiveSound('success');
       setDeletingStudentMainTab(null);
+      setPrincipalSuccessMsg(`✅ ተማሪ "${studentName}" (${studentId}) በተሳካ ሁኔታ ከሲስተሙ ተሰርዟል! (Student successfully deleted)`);
+      setTimeout(() => setPrincipalSuccessMsg(null), 5000);
+      await handleDeleteStudent(studentId);
     }
   };
 
@@ -10132,6 +10159,7 @@ export default function App() {
               setTeachers(prev => [newTeacher, ...prev]);
             }}
             existingTeachers={teachers}
+            existingStaff={staffList}
             schoolConfig={schoolConfig}
           />
         )}
@@ -12537,12 +12565,16 @@ export default function App() {
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-2.5">
                     <div className={`p-3 rounded-xl border ${themeMode === 'dark' ? 'bg-slate-800/40 border-slate-700/60' : 'bg-indigo-50/40 border-indigo-100/60'} text-center`}>
-                      <span className="block text-[10px] uppercase font-bold text-slate-400">Grade 7</span>
-                      <strong className="text-base font-black">{students.filter(s => s.grade === 'Grade 7' || s.grade.includes('7')).length}</strong>
+                      <span className="block text-[10px] uppercase font-bold text-slate-400">{schoolConfig.schoolLevel === 'secondary' ? 'Grade 9 & 10' : 'Grade 7'}</span>
+                      <strong className="text-base font-black">
+                        {filteredStudentsForSchool.filter(s => schoolConfig.schoolLevel === 'secondary' ? (s.grade === 'Grade 9' || s.grade === 'Grade 10') : (s.grade === 'Grade 7' || s.grade.includes('7'))).length}
+                      </strong>
                     </div>
                     <div className={`p-3 rounded-xl border ${themeMode === 'dark' ? 'bg-slate-800/40 border-slate-700/60' : 'bg-indigo-50/40 border-indigo-100/60'} text-center`}>
-                      <span className="block text-[10px] uppercase font-bold text-slate-400">Grade 8</span>
-                      <strong className="text-base font-black">{students.filter(s => s.grade === 'Grade 8' || s.grade.includes('8')).length}</strong>
+                      <span className="block text-[10px] uppercase font-bold text-slate-400">{schoolConfig.schoolLevel === 'secondary' ? 'Grade 11 & 12' : 'Grade 8'}</span>
+                      <strong className="text-base font-black">
+                        {filteredStudentsForSchool.filter(s => schoolConfig.schoolLevel === 'secondary' ? (s.grade === 'Grade 11' || s.grade === 'Grade 12') : (s.grade === 'Grade 8' || s.grade.includes('8'))).length}
+                      </strong>
                     </div>
                   </div>
 
@@ -12552,24 +12584,24 @@ export default function App() {
                       <div>
                         <div className="flex justify-between text-[10px] font-bold mb-1">
                           <span>{tx("ወንድ (Male)")}</span>
-                          <span>{students.filter(s => s.gender === 'Male').length}{tx(" ተማሪዎች (Students)")}</span>
+                          <span>{filteredStudentsForSchool.filter(s => s.gender === 'Male').length}{tx(" ተማሪዎች (Students)")}</span>
                         </div>
                         <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-blue-500" 
-                            style={{ width: `${students.length ? (students.filter(s => s.gender === 'Male').length / students.length) * 100 : 0}%` }}
+                            style={{ width: `${filteredStudentsForSchool.length ? (filteredStudentsForSchool.filter(s => s.gender === 'Male').length / filteredStudentsForSchool.length) * 100 : 0}%` }}
                           />
                         </div>
                       </div>
                       <div>
                         <div className="flex justify-between text-[10px] font-bold mb-1">
                           <span>{tx("ሴት (Female)")}</span>
-                          <span>{students.filter(s => s.gender === 'Female').length}{tx(" ተማሪዎች (Students)")}</span>
+                          <span>{filteredStudentsForSchool.filter(s => s.gender === 'Female').length}{tx(" ተማሪዎች (Students)")}</span>
                         </div>
                         <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-pink-500" 
-                            style={{ width: `${students.length ? (students.filter(s => s.gender === 'Female').length / students.length) * 100 : 0}%` }}
+                            style={{ width: `${filteredStudentsForSchool.length ? (filteredStudentsForSchool.filter(s => s.gender === 'Female').length / filteredStudentsForSchool.length) * 100 : 0}%` }}
                           />
                         </div>
                       </div>
@@ -12579,7 +12611,7 @@ export default function App() {
                   <div className="space-y-1.5">
                     <span className="font-extrabold text-[10px] uppercase tracking-wider text-slate-400 block">{tx("🆕 የቅርብ ጊዜ ተማሪዎች (Recent Registrations)")}</span>
                     <div className="max-h-24 overflow-y-auto space-y-1 pr-1">
-                      {students.slice(-3).reverse().map(st => (
+                      {filteredStudentsForSchool.slice(-3).reverse().map(st => (
                         <div key={st.id} className={`p-2 rounded-lg flex items-center justify-between text-[11px] border ${themeMode === 'dark' ? 'bg-slate-850 border-slate-750/50' : 'bg-white border-slate-100'}`}>
                           <span className="font-semibold">{st.name}</span>
                           <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">{st.grade}-{st.section}</span>
